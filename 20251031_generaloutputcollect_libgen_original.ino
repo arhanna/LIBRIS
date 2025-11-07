@@ -840,9 +840,50 @@ void homeSteppers(){
   }
 }
 
+void receiveFormulationData() {
+  if (Serial2.available()) {
+    static String receivedData = "";
+    static int rowIndex = 2;  // Start at index 2 (after prime rows)
+    char receivedChar = Serial2.read();
+    
+    if (receivedChar == 'f') {  // End of row marker
+      // Parse receivedData into individual floats and store in arr
+      int colIndex = 0;
+      int startIndex = 0;
+      for (int i = 0; i < receivedData.length(); i++) {
+        if (receivedData[i] == ',') {
+          float value = receivedData.substring(startIndex, i).toFloat();
+          // Convert float to string and store in arr
+          dtostrf(value, 4, 2, arr[rowIndex][colIndex]);
+          colIndex++;
+          startIndex = i + 1;
+        }
+      }
+      // Last element in the row
+      float value = receivedData.substring(startIndex).toFloat();
+      dtostrf(value, 4, 2, arr[rowIndex][colIndex]);
+      
+      rowIndex++;
+      receivedData = "";  // Reset for next row
+      
+      if (rowIndex > (NUMBER_OF_FORMULATIONS + 1)) {
+        // All 4 formulations received (indices 2-5)
+        rowIndex = 2;  // Reset for next batch
+        Serial.println("Formulation data received from ESP32");
+      }
+    } else if (receivedChar == 't') {
+      // Termination signal
+      kill_switch = true;
+      setPressures("0","0","0","0","0","0","0","0","0", 0);
+    } else {
+      receivedData += receivedChar;  // Accumulate received characters
+    }
+  }
+}
+
 void setup() {
   Serial.begin(ArdBaud);     // Arduino Serial monitor interface
-  Serial2.begin(ArdBaud);     // Arduino Serial monitor interface
+  Serial2.begin(115200);     // ESP32 communication (115200 baud to match ESP32)
   mySerial.begin(AlctBaud);  // Alicat Serial interface (make sure baud rate matches Alicat setting)
   while (!Serial);
 
@@ -957,6 +998,9 @@ void handleCollectionWell() {
 }
 
 void loop() {
+  // Check for incoming formulation data from ESP32 GUI
+  receiveFormulationData();
+  
   const int TOTAL_COLLECTIONS = NUMBER_OF_LIPIDS * NUMBER_OF_FORMULATIONS * NUMBER_OF_COLLECTIONS;
   
   // Initialization sequence
@@ -995,6 +1039,9 @@ void loop() {
     while(num_collection_events_on_this_plate < collections_to_be_used && 
           collection_counter < TOTAL_COLLECTIONS && 
           !kill_switch) {
+      
+      // Check for incoming formulation data from ESP32 GUI (non-blocking)
+      receiveFormulationData();
       
       // Collect in a collection well
       handleCollectionWell();
