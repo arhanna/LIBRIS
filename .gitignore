@@ -1,0 +1,21 @@
+# Editor history
+.history/
+
+# Arduino build files
+*.hex
+*.elf
+*.bin
+build/
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
